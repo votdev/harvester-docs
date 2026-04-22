@@ -37,12 +37,6 @@ Live migration can occur when the following requirements are met:
 
 A virtual machine is considered non-migratable if it has one or more of the following:
 
-- Volume with the following properties:
-
-    - Type: `CD-ROM` or `Container Disk`
-    - Access mode: `ReadWriteOnce`
-    - StorageClass replica count: `1` (This is not detected in all cases.)
-
 - Host devices passthrough such as `PCI` and `vGPU`
 
 - [Node selector](./create-vm.md#node-scheduling) that binds the virtual machine to a specific node
@@ -95,7 +89,7 @@ demo
 
 The format of the `VirtualMachineInstanceMigration` object's name varies depending on whether the migration is manually or automatically triggered.
 
-When a migration is triggered from the **Migrate** [menu item](#starting-a-migration), the `VirtualMachineInstanceMigration` object's name is prefixed with the virtual 
+When a migration is triggered from the **Migrate** [menu item](#starting-a-migration), the `VirtualMachineInstanceMigration` object's name is prefixed with the virtual
 machine's name and a random string (for example, `vm1-a3d1f`).
 
 When a migration is triggered [automatically](#automatically-triggered-batch-migration), the `VirtualMachineInstanceMigration` object's name is prefixed with `kubevirt-evacuation-` and a random string (for example, `kubevirt-evacuation-9c485`).
@@ -116,7 +110,7 @@ Each node has multiple CPU models that are labeled with different keys.
 
 During live migration, the controller checks the value of `spec.domain.cpu.model` in the VirtualMachineInstance (VMI) CR, which is derived from `spec.template.spec.domain.cpu.model` in the VirtualMachine (VM) CR. If the value of `spec.template.spec.domain.cpu.model` is not set, the controller uses the default value `host-model`.
 
-When `host-model` is used, the process fetches the value of the primary CPU model and fills `spec.NodeSelectors` of the newly created pod with the label `cpu-model-migration.node.kubevirt.io/{cpu-model}`. 
+When `host-model` is used, the process fetches the value of the primary CPU model and fills `spec.NodeSelectors` of the newly created pod with the label `cpu-model-migration.node.kubevirt.io/{cpu-model}`.
 
 Alternatively, you can customize the CPU model in `spec.domain.cpu.model`. For example, if the CPU model is `XYZ`, the process fills `spec.NodeSelectors` of the newly created pod with the label `cpu-model.node.kubevirt.io/XYZ`.
 
@@ -173,7 +167,7 @@ Do not use this UI feature if the migration process was created using [batch mig
 
 ### Completion Timeout
 
-The live migration process will copy virtual machine memory pages and disk blocks to the destination. In some cases, the virtual machine can write to different memory pages or disk blocks at a higher rate than these can be copied. As a result, the migration process is prevented from being completed in a reasonable amount of time. 
+The live migration process will copy virtual machine memory pages and disk blocks to the destination. In some cases, the virtual machine can write to different memory pages or disk blocks at a higher rate than these can be copied. As a result, the migration process is prevented from being completed in a reasonable amount of time.
 
 Live migration will be aborted if it exceeds the completion timeout of 800s per GiB of data. For example, a virtual machine with 8 GiB of memory will time out after 6400 seconds.
 
@@ -223,3 +217,14 @@ An outage on the VM migration network can affect the migration process in the fo
 The migration process runs in peer-to-peer mode, which means that the libvirt daemon (libvirtd) on the source node controls the migration by calling the destination daemon directly. In addition, a built-in keepalive mechanism ensures that the client connection remains active during the migration process. If the connection remains inactive for a specific period, it is closed, and the migration process is aborted.
 
 By default, the keepalive interval is set to 5 seconds, and the retry count is set to 5. Given these default values, the migration process is aborted if the connection is inactive for 30 seconds. However, the migration may fail earlier or later, depending on the actual cluster conditions.
+
+## Known Issues
+
+* [Issue #10221](https://github.com/harvester/harvester/issues/10221): Failed to migrate a VM after ejecting an image from a CD-ROM device that appears before `Container` volumes.
+
+If you follow the steps [here](./create-windows-vm.md#volumes-tab) to create a Windows VM, and the VM has `Container` volumes after `Image Volume` volumes of type `cd-rom`, migration fails after you eject an image from any of thos CD-ROM devices.
+
+Until the upstream issue is fixed, use one of these workarounds:
+
+- Migrate the VM without ejecting any images from the CD-ROM devices.
+- During VM creation, move all `Container` volumes before the first `Image Volume` of type `CD-ROM`.
